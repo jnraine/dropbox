@@ -10,7 +10,7 @@ end
 def should_receive_api_method_with_arguments(object, method, api_method, arguments, response, path=nil, root=nil)
   object.should_receive(method).once do |url|
     front = url.split('?').first
-    front.should eql("#{Dropbox::ALTERNATE_HOSTS[api_method] || Dropbox::HOST}/#{Dropbox::VERSION}/#{api_method}#{'/' + root if root}#{'/' + path if path}")
+    front.should eql("#{Dropbox::ALTERNATE_SSL_HOSTS[api_method] || Dropbox::SSL_HOST}/#{Dropbox::VERSION}/#{api_method}#{'/' + root if root}#{'/' + path if path}")
 
     query_params = url_args(url)
     query_params.each { |key, val| val.should eql(arguments[key.to_sym]) }
@@ -660,17 +660,17 @@ describe Dropbox::API do
       end
 
       it "should send the request" do
-        uri = URI.parse(Dropbox::ALTERNATE_HOSTS['files'])
+        uri = URI.parse(Dropbox::ALTERNATE_SSL_HOSTS['files'])
         @http = mock('Net::HTTP', :request => @response, :use_ssl= => nil)
         Net::HTTP.stub!(:new).and_return(@http)
 
         @session.upload __FILE__, 'test'
       end
-      
+
       it "should send an SSL request" do
         @session = Dropbox::Session.new('foo', 'bar', :ssl => true)
         @session.authorize
-        
+
         uri = URI.parse(Dropbox::ALTERNATE_SSL_HOSTS['files'])
         @http = mock('Net::HTTP', :request => @response, :use_ssl= => nil)
         Net::HTTP.stub!(:new).and_return(@http)
@@ -679,7 +679,7 @@ describe Dropbox::API do
       end
     end
   end
-  
+
   describe "#event_metadata" do
     it "should call the API method event_metadata" do
       @response.stub!(:body).and_return('{"a":"b"}')
@@ -792,40 +792,6 @@ describe Dropbox::API do
 
     it "should raise for invalid modes" do
       lambda { @session.mode = :foo }.should raise_error(ArgumentError)
-    end
-  end
-  
-  {
-    :account => [],
-    :copy => [ 'foo', 'bar' ],
-    :create_folder => [ 'foo' ],
-    :delete => [ 'foo' ],
-    :move => [ 'foo', 'bar' ],
-    :link => [ 'foo' ],
-    :metadata => [ 'foo'],
-    :download => [ 'foo' ],
-    :event_metadata => [ 'foo' ],
-    :event_content => [ 'foo' ]
-  }.each do |root_method, args|
-    describe ".#{root_method}" do
-      before :each do
-        @session = Dropbox::Session.new('foo', 'bar', :ssl => true)
-        @session.authorize
-        
-        @token_mock.stub!(:get).and_return(@response)
-        @token_mock.stub!(:post).and_return(@response)
-        @response.stub!(:body).and_return('{"a":"b"}')
-        @response.stub!(:header).and_return('X-Dropbox-Metadata' => '{"a":"b"}')
-      end
-      
-      it "should use the SSL host if :ssl => true is given to the constructor" do
-        Dropbox.should_receive(:api_url).once do |*args|
-          args.last[:ssl].should be_true
-          "http://www.example.com/test"
-        end
-        
-        @session.send(root_method, *args)
-      end
     end
   end
 

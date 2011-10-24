@@ -66,7 +66,7 @@ module Dropbox
     # on the data returned.
 
     def account
-      get('account', 'info', :ssl => @ssl).to_struct_recursively
+      get('account', 'info').to_struct_recursively
     end
     memoize :account
 
@@ -84,7 +84,6 @@ module Dropbox
     def download(path, options={})
       path = path.sub(/^\//, '')
       rest = Dropbox.check_path(path).split('/')
-      rest << { :ssl => @ssl }
       api_body :get, 'files', root(options), *rest
       #TODO streaming, range queries
     end
@@ -122,8 +121,6 @@ module Dropbox
     def thumbnail(path, options={})\
       path = path.sub(/^\//, '')
       rest = Dropbox.check_path(path).split('/')
-      rest << { :ssl => @ssl }
-      rest.last.merge! options
 
       begin
         api_body :get, 'thumbnails', root(options), *rest
@@ -171,7 +168,7 @@ module Dropbox
         raise(ArgumentError, "Must specify the :as option when uploading from StringIO") unless options[:as]
         file = local_file
         local_path = options[:as]
-        
+
         # hack for bug in UploadIO
         class << file
           attr_accessor :path
@@ -180,20 +177,19 @@ module Dropbox
       else
         raise ArgumentError, "local_file must be a File, StringIO, or file path"
       end
-      
+
       name = File.basename(options.delete(:as)) if options[:as]
 
       remote_path = remote_path.sub(/^\//, '')
       remote_path = Dropbox.check_path(remote_path).split('/')
 
-      remote_path << { :ssl => @ssl }
       url = Dropbox.api_url('files', root(options), *remote_path)
       uri = URI.parse(url)
 
       oauth_request = Net::HTTP::Post.new(uri.path)
       oauth_request.set_form_data 'file' => name
 
-      alternate_host_session = clone_with_host(@ssl ? Dropbox::ALTERNATE_SSL_HOSTS['files'] : Dropbox::ALTERNATE_HOSTS['files'])
+      alternate_host_session = clone_with_host(Dropbox::ALTERNATE_SSL_HOSTS['files'])
       alternate_host_session.instance_variable_get(:@consumer).sign!(oauth_request, @access_token)
       oauth_signature = oauth_request.to_hash['authorization']
 
@@ -206,7 +202,7 @@ module Dropbox
 
       proxy = URI.parse(@proxy || "")
       http = Net::HTTP::Proxy(proxy.host, proxy.port).new(uri.host, uri.port)
-      http.use_ssl = @ssl
+      http.use_ssl = true
       http.read_timeout = options[:timeout] if options[:timeout]
       response = http.request(request)
 
@@ -241,7 +237,7 @@ module Dropbox
       target = target.sub(/^\//, '')
       target << File.basename(source) if target.ends_with?('/')
       begin
-        parse_metadata(post('fileops', 'copy', :from_path => Dropbox.check_path(source), :to_path => Dropbox.check_path(target), :root => root(options), :ssl => @ssl)).to_struct_recursively
+        parse_metadata(post('fileops', 'copy', :from_path => Dropbox.check_path(source), :to_path => Dropbox.check_path(target), :root => root(options))).to_struct_recursively
       rescue UnsuccessfulResponseError => error
         raise FileNotFoundError.new(source) if error.response.kind_of?(Net::HTTPNotFound)
         raise FileExistsError.new(target) if error.response.kind_of?(Net::HTTPForbidden)
@@ -266,7 +262,7 @@ module Dropbox
       path = path.sub(/^\//, '')
       path.sub! /\/$/, ''
       begin
-        parse_metadata(post('fileops', 'create_folder', :path => Dropbox.check_path(path), :root => root(options), :ssl => @ssl)).to_struct_recursively
+        parse_metadata(post('fileops', 'create_folder', :path => Dropbox.check_path(path), :root => root(options))).to_struct_recursively
       rescue UnsuccessfulResponseError => error
         raise FileExistsError.new(path) if error.response.kind_of?(Net::HTTPForbidden)
         raise error
@@ -289,7 +285,7 @@ module Dropbox
       path = path.sub(/^\//, '')
       path.sub! /\/$/, ''
       begin
-        api_response(:post, 'fileops', 'delete', :path => Dropbox.check_path(path), :root => root(options), :ssl => @ssl)
+        api_response(:post, 'fileops', 'delete', :path => Dropbox.check_path(path), :root => root(options))
       rescue UnsuccessfulResponseError => error
         raise FileNotFoundError.new(path) if error.response.kind_of?(Net::HTTPNotFound)
         raise error
@@ -320,7 +316,7 @@ module Dropbox
       target = target.sub(/^\//, '')
       target << File.basename(source) if target.ends_with?('/')
       begin
-        parse_metadata(post('fileops', 'move', :from_path => Dropbox.check_path(source), :to_path => Dropbox.check_path(target), :root => root(options), :ssl => @ssl)).to_struct_recursively
+        parse_metadata(post('fileops', 'move', :from_path => Dropbox.check_path(source), :to_path => Dropbox.check_path(target), :root => root(options))).to_struct_recursively
       rescue UnsuccessfulResponseError => error
         raise FileNotFoundError.new(source) if error.response.kind_of?(Net::HTTPNotFound)
         raise FileExistsError.new(target) if error.response.kind_of?(Net::HTTPForbidden)
@@ -362,7 +358,6 @@ module Dropbox
       path = path.sub(/^\//, '')
       begin
         rest = Dropbox.check_path(path).split('/')
-        rest << { :ssl => @ssl }
         api_response(:get, 'links', root(options), *rest)
       rescue UnsuccessfulResponseError => error
         return error.response['Location'] if error.response.kind_of?(Net::HTTPFound)
@@ -410,7 +405,6 @@ module Dropbox
       args.last[:file_limit] = options[:limit] if options[:limit]
       args.last[:hash] = options[:prior_response].hash if options[:prior_response] and options[:prior_response].hash
       args.last[:list] = !(options[:suppress_list].to_bool)
-      args.last[:ssl] = @ssl
 
       begin
         parse_metadata(get(*args)).to_struct_recursively
@@ -444,11 +438,11 @@ module Dropbox
     alias :ls :list
 
     def event_metadata(target_events, options={}) # :nodoc:
-      get 'event_metadata', :ssl => @ssl, :root => root(options), :target_events => target_events
+      get 'event_metadata', :root => root(options), :target_events => target_events
     end
 
     def event_content(entry, options={}) # :nodoc:
-      request = Dropbox.api_url('event_content', :target_event => entry, :ssl => @ssl, :root => root(options))
+      request = Dropbox.api_url('event_content', :target_event => entry, :root => root(options))
       response = api_internal(:get, request)
       begin
         return response.body, JSON.parse(response.header['X-Dropbox-Metadata'])

@@ -33,12 +33,6 @@ module Dropbox
   HOST = "http://api.dropbox.com"
   # The SSL host serving API requests.
   SSL_HOST = "https://api.dropbox.com"
-  # Alternate hosts for other API requests.
-  ALTERNATE_HOSTS = {
-    'event_content' => 'http://api-content.dropbox.com',
-    'files' => 'http://api-content.dropbox.com',
-    'thumbnails' => 'http://api-content.dropbox.com'
-  }
   # Alternate SSL hosts for other API requests.
   ALTERNATE_SSL_HOSTS = {
     'event_content' => 'https://api-content.dropbox.com',
@@ -48,8 +42,7 @@ module Dropbox
 
   def self.api_url(*paths_and_options) # :nodoc:
     params = paths_and_options.extract_options!
-    ssl = params.delete(:ssl)
-    host = (ssl ? ALTERNATE_SSL_HOSTS[paths_and_options.first] : ALTERNATE_HOSTS[paths_and_options.first]) || (ssl ? SSL_HOST : HOST)
+    host = ALTERNATE_SSL_HOSTS[paths_and_options.first] || SSL_HOST
     url = "#{host}/#{VERSION}/#{paths_and_options.map { |path_elem| CGI.escape path_elem.to_s }.join('/')}"
     url.gsub! '+', '%20' # dropbox doesn't really like plusses
     url << "?#{params.map { |k,v| CGI.escape(k.to_s) + "=" + CGI.escape(v.to_s) }.join('&')}" unless params.empty?
