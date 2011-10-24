@@ -9,3 +9,7 @@ group :development do
   gem 'rspec', '>= 2.0'
   gem 'mechanize'
 end
+
+group :development, :test do
+  gem 'ruby-debug19'
+end
