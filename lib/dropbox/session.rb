@@ -57,12 +57,10 @@ module Dropbox
     # +ssl+:: If true, uses SSL to connect to the Dropbox API server.
 
     def initialize(oauth_key, oauth_secret, options={})
-      @ssl = options[:ssl].to_bool
-
       @proxy = options[:proxy] || ENV["HTTP_PROXY"] || ENV["http_proxy"]
       @proxy = nil if options[:noproxy].to_bool
       @consumer = OAuth::Consumer.new(oauth_key, oauth_secret,
-                                      :site => (@ssl ? Dropbox::AUTH_SSL_HOST : Dropbox::AUTH_HOST),
+                                      :site => Dropbox::AUTH_SSL_HOST,
                                       :proxy => @proxy,
                                       :request_token_path => "/#{Dropbox::VERSION}/oauth/request_token",
                                       :authorize_path => "/#{Dropbox::VERSION}/oauth/authorize",
@@ -116,9 +114,9 @@ module Dropbox
 
     def serialize
       if authorized? then
-        [ @consumer.key, @consumer.secret, authorized?, @access_token.token, @access_token.secret, @ssl, mode ].to_yaml
+        [ @consumer.key, @consumer.secret, authorized?, @access_token.token, @access_token.secret, mode ].to_yaml
       else
-        [ @consumer.key, @consumer.secret, authorized?, @request_token.token, @request_token.secret, @ssl, mode ].to_yaml
+        [ @consumer.key, @consumer.secret, authorized?, @request_token.token, @request_token.secret, mode ].to_yaml
       end
     end
 
