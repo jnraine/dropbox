@@ -114,9 +114,9 @@ module Dropbox
 
     def serialize
       if authorized? then
-        [ @consumer.key, @consumer.secret, authorized?, @access_token.token, @access_token.secret, mode ].to_yaml
+        [ @consumer.key, @consumer.secret, authorized?, @access_token.token, @access_token.secret, true, mode ].to_yaml
       else
-        [ @consumer.key, @consumer.secret, authorized?, @request_token.token, @request_token.secret, mode ].to_yaml
+        [ @consumer.key, @consumer.secret, authorized?, @request_token.token, @request_token.secret, true, mode ].to_yaml
       end
     end
 
