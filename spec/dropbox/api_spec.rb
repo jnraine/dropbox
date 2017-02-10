@@ -4,7 +4,7 @@ def url_args(url)
   return {} unless url.include?('?')
   _, back = url.split('?')
   return {} unless back
-  back.split('&').map { |comp| comp.split('=') }.to_hash
+  back.split('&').map { |comp| comp.split('=') }.to_h
 end
 
 def should_receive_api_method_with_arguments(object, method, api_method, arguments, response, path=nil, root=nil)
